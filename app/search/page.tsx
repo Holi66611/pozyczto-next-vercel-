@@ -1,15 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const CATS = [
-  { id:'dom-ogrod', name:'Dom i ogród' },
-  { id:'narzedzia', name:'Narzędzia i elektronarzędzia' },
-  { id:'sport', name:'Sport i turystyka' },
-  { id:'kultura', name:'Kultura i hobby' },
-  { id:'eventy', name:'Eventy i imprezy' },
-  { id:'dziecko', name:'Dziecko i rodzina' },
+  { id:'narzedzia', name:'Narzędzia' },
+  { id:'agd', name:'AGD' },
+  { id:'ogrod', name:'Ogród' },
   { id:'elektronika', name:'Elektronika' },
-  { id:'motoryzacja', name:'Motoryzacja' },
+  { id:'eventy', name:'Eventy' },
+  { id:'dziecko', name:'Dziecko' },
 ];
 
 export default function SearchPage(){
@@ -17,56 +15,63 @@ export default function SearchPage(){
   const [q,setQ] = useState('');
   const [cat,setCat] = useState('');
   const [city,setCity] = useState('');
-  const [min,setMin] = useState('');
-  const [max,setMax] = useState('');
-  const [sort,setSort] = useState('newest');
 
-  async function load(){
+  const params = useMemo(()=>{
     const p = new URLSearchParams();
     if(q) p.set('q',q);
     if(cat) p.set('cat',cat);
     if(city) p.set('city',city);
-    if(min) p.set('min',min);
-    if(max) p.set('max',max);
-    p.set('sort',sort);
-    const res = await fetch('/api/items?' + p.toString());
+    return p.toString();
+  },[q,cat,city]);
+
+  async function load(){
+    const res = await fetch('/api/items' + (params ? `?${params}` : ''));
     const data = await res.json().catch(()=> ([]));
     setItems(Array.isArray(data) ? data : []);
   }
-
-  useEffect(()=>{ load(); }, [q,cat,city,min,max,sort]);
+  useEffect(()=>{ load(); }, [params]);
 
   return (
-    <div>
-      <h1>Wyszukiwarka</h1>
-      <div className="card grid" style={{gridTemplateColumns:'1.2fr .9fr .9fr .6fr .6fr auto'}}>
-        <input placeholder="fraza" value={q} onChange={e=>setQ(e.target.value)} />
-        <select value={cat} onChange={e=>setCat(e.target.value)}>
-          <option value="">kategoria</option>
-          {CATS.map(c=> <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <input placeholder="miasto" value={city} onChange={e=>setCity(e.target.value)} />
-        <input type="number" placeholder="min" value={min} onChange={e=>setMin(e.target.value)} />
-        <input type="number" placeholder="max" value={max} onChange={e=>setMax(e.target.value)} />
-        <select value={sort} onChange={e=>setSort(e.target.value)}>
-          <option value="newest">Najnowsze</option>
-          <option value="priceAsc">Cena rosnąco</option>
-          <option value="priceDesc">Cena malejąco</option>
-        </select>
+    <div className="grid" style={{gap:14}}>
+      <div className="card">
+        <div className="row" style={{justifyContent:'space-between'}}>
+          <div><h2>Oferty</h2><div className="kicker">Szukaj po frazie, kategorii i mieście.</div></div>
+          <div className="row"><a className="btn" href="/api/dev/seed">🌱 Seed</a><a className="btn" href="/api/dev/init">🧱 Init DB</a></div>
+        </div>
+        <div className="grid" style={{gridTemplateColumns:'1.2fr .9fr .9fr', marginTop:12}}>
+          <input placeholder="fraza (np. wiertarka)" value={q} onChange={e=>setQ(e.target.value)} />
+          <select value={cat} onChange={e=>setCat(e.target.value)}>
+            <option value="">kategoria</option>
+            {CATS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <input placeholder="miasto (np. Warszawa)" value={city} onChange={e=>setCity(e.target.value)} />
+        </div>
       </div>
-
-      <section className="results" style={{marginTop:12}}>
+      <section className="tiles">
         {items.map(it => (
-          <article key={it.id} className="card card-item">
-            <img src={it.imageurl || it.image || `https://picsum.photos/seed/${encodeURIComponent(it.id)}/600/400`} alt={it.title} />
-            <div style={{padding:10}}>
-              <strong><a href={'/offer/' + it.id}>{it.title}</a></strong>
-              <div className="kicker">{it.city || '—'} • ⭐ {it.rating || '—'}</div>
-              <div className="price">{Math.round(Number(it.price||0))} PLN / dzień</div>
+          <article key={it.id} className="item">
+            <img src={it.imageurl || it.imageUrl || it.image || `https://picsum.photos/seed/${encodeURIComponent(it.id)}/900/600`} alt={it.title} />
+            <div className="meta">
+              <div className="row" style={{justifyContent:'space-between'}}>
+                <span className="tag">📍 {it.city || '—'}</span>
+                <span className="tag">⭐ {Number(it.rating || 4.7).toFixed(1)}</span>
+              </div>
+              <h3 style={{marginTop:10}}>{it.title}</h3>
+              <div className="row" style={{justifyContent:'space-between'}}>
+                <span className="kicker">{it.cat}</span>
+                <span className="price">{Math.round(Number(it.price||0))} PLN/d</span>
+              </div>
+              <div className="row" style={{marginTop:10}}>
+                <a className="btn" href={`/offer/${it.id}`}>Zobacz</a>
+                <a className="btn" href={`/add?clone=${it.id}`}>Dodaj podobną</a>
+              </div>
             </div>
           </article>
         ))}
       </section>
+      {!items.length && (
+        <div className="card"><b>Brak wyników.</b><div className="kicker">Odpal <code>/api/dev/seed</code>, albo dodaj ofertę w <code>/add</code>.</div></div>
+      )}
     </div>
   );
 }

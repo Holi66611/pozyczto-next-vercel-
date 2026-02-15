@@ -21,39 +21,8 @@ export async function GET(){
       deposit REAL DEFAULT 0,
       city TEXT NOT NULL,
       desc TEXT,
-      image TEXT,
       imageUrl TEXT,
-      rating REAL DEFAULT 4.5,
-      lat REAL,
-      lng REAL,
-      createdAt BIGINT NOT NULL
-    );`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS bookings (
-      id TEXT PRIMARY KEY,
-      itemId TEXT NOT NULL,
-      renterId TEXT NOT NULL,
-      dateFrom BIGINT NOT NULL,
-      dateTo BIGINT NOT NULL,
-      status TEXT NOT NULL,
-      createdAt BIGINT NOT NULL
-    );`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS threads (
-      id TEXT PRIMARY KEY,
-      userA TEXT NOT NULL,
-      userB TEXT NOT NULL,
-      createdAt BIGINT NOT NULL
-    );`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      threadId TEXT NOT NULL,
-      senderId TEXT NOT NULL,
-      body TEXT NOT NULL,
+      rating REAL DEFAULT 4.7,
       createdAt BIGINT NOT NULL
     );`;
 

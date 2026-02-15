@@ -1,83 +1,94 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const CATS = [
-  { id:'dom-ogrod', name:'Dom i ogród' },
-  { id:'narzedzia', name:'Narzędzia i elektronarzędzia' },
-  { id:'sport', name:'Sport i turystyka' },
-  { id:'kultura', name:'Kultura i hobby' },
-  { id:'eventy', name:'Eventy i imprezy' },
-  { id:'dziecko', name:'Dziecko i rodzina' },
+  { id:'narzedzia', name:'Narzędzia' },
+  { id:'agd', name:'AGD' },
+  { id:'ogrod', name:'Ogród' },
   { id:'elektronika', name:'Elektronika' },
-  { id:'motoryzacja', name:'Motoryzacja' },
+  { id:'eventy', name:'Eventy' },
+  { id:'dziecko', name:'Dziecko' },
 ];
 
-export default function AddPage(){
-  const [img,setImg] = useState<File|null>(null);
+export default function AddPage({ searchParams }: any){
+  const cloneId = searchParams?.clone as string | undefined;
   const [status,setStatus] = useState('');
+  const [img,setImg] = useState<File|null>(null);
+  const [form,setForm] = useState<any>({ title:'', cat:'narzedzia', price:25, deposit:0, city:'', desc:'', imageUrl:'' });
+
+  useEffect(()=>{
+    (async ()=>{
+      if(!cloneId) return;
+      const r = await fetch('/api/items/' + cloneId);
+      if(!r.ok) return;
+      const it = await r.json();
+      setForm({ title: it.title || '', cat: it.cat || 'narzedzia', price: Number(it.price||25), deposit: Number(it.deposit||0), city: it.city || '', desc: it.desc || '', imageUrl: it.imageurl || it.imageUrl || it.image || '' });
+    })();
+  },[cloneId]);
 
   async function uploadToCloudinary(file: File){
     const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
     if(!cloud || !preset) return null;
-    const form = new FormData();
-    form.append('file', file);
-    form.append('upload_preset', preset);
-    const url = `https://api.cloudinary.com/v1_1/${cloud}/image/upload`;
-    const res = await fetch(url, { method:'POST', body: form });
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', preset);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/upload`, { method:'POST', body: fd });
     const data = await res.json();
     return data?.secure_url || null;
   }
 
-  async function submit(e: any){
+  async function submit(e:any){
     e.preventDefault();
     setStatus('Zapisywanie…');
-    const f = new FormData(e.currentTarget);
-    const payload: any = Object.fromEntries(f.entries());
-    payload.price = Number(payload.price);
-    payload.deposit = Number(payload.deposit || 0);
-    payload.lat = payload.lat ? Number(payload.lat) : null;
-    payload.lng = payload.lng ? Number(payload.lng) : null;
-
+    let imageUrl = (form.imageUrl||'').trim();
     if(img){
-      const url = await uploadToCloudinary(img);
-      if(url) payload.imageUrl = url;
+      const up = await uploadToCloudinary(img);
+      if(up) imageUrl = up;
     }
-
+    const payload = { ...form, price:Number(form.price), deposit:Number(form.deposit||0), imageUrl };
     const res = await fetch('/api/items', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const data = await res.json().catch(()=> ({}));
-    if(!res.ok){ setStatus('❌ ' + (data?.error || res.status)); return; }
-
+    if(!res.ok){
+      setStatus('❌ ' + (data?.error || res.status));
+      if(res.status === 401) setStatus('❌ 401 – zaloguj się w /login');
+      return;
+    }
     setStatus('✅ Dodano!');
     location.href = '/search';
   }
 
   return (
-    <div>
-      <h1>Dodaj przedmiot</h1>
-      <form onSubmit={submit} className="grid grid-2 card">
-        <div><label>Tytuł *</label><input name="title" required /></div>
-        <div>
-          <label>Kategoria *</label>
-          <select name="cat" required defaultValue="">
-            <option value="" disabled>– wybierz –</option>
-            {CATS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+    <div className="grid grid-2">
+      <form className="card" onSubmit={submit}>
+        <h2>Dodaj ofertę</h2>
+        <p className="kicker">Wymaga zalogowania (cookie JWT). Najprościej dodaj URL zdjęcia.</p>
+        <div className="hr" />
+        <div><label>Tytuł *</label><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} required /></div>
+        <div style={{marginTop:10}}><label>Kategoria *</label>
+          <select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})}>{CATS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         </div>
-        <div><label>Cena / dzień (PLN) *</label><input name="price" type="number" min={1} required /></div>
-        <div><label>Kaucja (PLN)</label><input name="deposit" type="number" min={0} /></div>
-        <div><label>Miasto *</label><input name="city" required /></div>
-        <div><label>Zdjęcie (opcjonalnie)</label><input type="file" accept="image/*" onChange={e=>setImg(e.target.files?.[0] || null)} /></div>
-        <div><label>Lat (opcjonalnie)</label><input name="lat" /></div>
-        <div><label>Lng (opcjonalnie)</label><input name="lng" /></div>
-        <div style={{gridColumn:'1/-1'}}><label>Opis</label><textarea name="desc" rows={4} /></div>
-        <div style={{gridColumn:'1/-1', display:'flex', justifyContent:'flex-end'}}>
-          <button className="btn btn-primary" type="submit">Zapisz</button>
+        <div className="row" style={{marginTop:10}}>
+          <div style={{flex:1}}><label>Cena / dzień (PLN) *</label><input type="number" min={1} value={form.price} onChange={e=>setForm({...form,price:e.target.value})} required /></div>
+          <div style={{flex:1}}><label>Kaucja (PLN)</label><input type="number" min={0} value={form.deposit} onChange={e=>setForm({...form,deposit:e.target.value})} /></div>
         </div>
+        <div style={{marginTop:10}}><label>Miasto *</label><input value={form.city} onChange={e=>setForm({...form,city:e.target.value})} required /></div>
+        <div style={{marginTop:10}}><label>Opis</label><textarea rows={4} value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} /></div>
+        <div style={{marginTop:10}} className="grid">
+          <div><label>Zdjęcie – URL</label><input placeholder="https://..." value={form.imageUrl} onChange={e=>setForm({...form,imageUrl:e.target.value})} /><small>Jeśli puste, użyjemy obrazka demo.</small></div>
+          <div><label>Lub wgraj plik (Cloudinary, opcjonalnie)</label><input type="file" accept="image/*" onChange={e=>setImg(e.target.files?.[0] || null)} /><small>Wymaga env: NEXT_PUBLIC_CLOUDINARY_*.</small></div>
+        </div>
+        <div className="row" style={{justifyContent:'flex-end', marginTop:12}}><button className="btn btn-primary" type="submit">Zapisz ofertę</button></div>
+        {status && <div className="notice" style={{marginTop:12}}>{status}</div>}
       </form>
-
-      {status && <p className="kicker">{status}</p>}
-      <small>Wymagane logowanie. Jeśli widzisz 401 – zaloguj się w /login.</small>
+      <div className="card">
+        <h2>Tipy</h2>
+        <ul className="kicker">
+          <li>Najpierw odpal <code>/api/dev/init</code> (tabele).</li>
+          <li>Potem <code>/api/dev/seed</code> (przykładowe oferty).</li>
+          <li>Jeśli dostajesz 401: zaloguj się w <code>/login</code>.</li>
+        </ul>
+      </div>
     </div>
   );
 }
